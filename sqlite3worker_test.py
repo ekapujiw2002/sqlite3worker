@@ -95,7 +95,7 @@ class Sqlite3WorkerTests(unittest.TestCase):  # pylint:disable=R0904
             "INSERT into tester values (?, ?)", ("2010-01-01 13:00:00", "bow"))
         self.assertEqual(
             self.sqlite3worker.execute("SELECT * from tester"),
-            "Exit Called")
+            "Close Called")
 
     def test_double_close(self):
         """Make sure double closeing messages properly."""

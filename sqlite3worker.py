@@ -72,8 +72,8 @@ class Sqlite3Worker(threading.Thread):
         self._max_queue_size = max_queue_size
         # Event that is triggered once the run_query has been executed.
         self._select_events = {}
-        # Event to start the exit process.
-        self._exit_event = threading.Event()
+        # Event to start the close process.
+        self._close_event = threading.Event()
         # Event that closes out the threads.
         self._close_lock = threading.Lock()
         self.start()
@@ -105,9 +105,9 @@ class Sqlite3Worker(threading.Thread):
                     LOGGER.debug("run: commit")
                     self._sqlite3_conn.commit()
                     execute_count = 0
-            # Only exit if the queue is empty.  Otherwise keep getting
+            # Only close if the queue is empty.  Otherwise keep getting
             # through the queue until it's empty.
-            if self._exit_event.is_set() and self._sql_queue.empty():
+            if self._close_event.is_set() and self._sql_queue.empty():
                 self._sqlite3_conn.commit()
                 self._sqlite3_conn.close()
                 return
@@ -149,7 +149,7 @@ class Sqlite3Worker(threading.Thread):
             if not self.is_alive():
                 LOGGER.debug("Already Closed")
                 return "Already Closed"
-            self._exit_event.set()
+            self._close_event.set()
             # Put a value in the queue to push through the block waiting for
             # items in the queue.
             self._sql_queue.put(("", "", ""), timeout=5)
@@ -190,17 +190,15 @@ class Sqlite3Worker(threading.Thread):
         Returns:
             If it's a select query it will return the results of the query.
         """
-        if self._exit_event.is_set():
-            LOGGER.debug("Exit set, not running: %s", query)
-            return "Exit Called"
+        if self._close_event.is_set():
+            LOGGER.debug("Close set, not running: %s", query)
+            return "Close Called"
         LOGGER.debug("execute: %s", query)
         values = values or []
         # A token to track this query with.
         token = str(uuid.uuid4())
+        self._sql_queue.put((token, query, values), timeout=5)
         # If it's a select we queue it up with a token to mark the results
         # into the output queue so we know what results are ours.
         if query.lower().strip().startswith("select"):
-            self._sql_queue.put((token, query, values), timeout=5)
             return self._query_results(token)
-        else:
-            self._sql_queue.put((token, query, values), timeout=5)
