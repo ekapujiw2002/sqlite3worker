@@ -64,8 +64,8 @@ class Sqlite3Worker(threading.Thread):
         threading.Thread.__init__(self, name=__name__)
         self.daemon = True
         self._sqlite3_conn = sqlite3.connect(
-            file_name, check_same_thread=False,
-            detect_types=sqlite3.PARSE_DECLTYPES)
+            file_name, check_same_thread=False, detect_types=sqlite3.PARSE_DECLTYPES
+        )
         self._sqlite3_cursor = self._sqlite3_conn.cursor()
         self._sql_queue = Queue.Queue(maxsize=max_queue_size)
         self._results = {}
@@ -99,9 +99,7 @@ class Sqlite3Worker(threading.Thread):
                 execute_count += 1
                 # Let the executes build up a little before committing to disk
                 # to speed things up.
-                if (
-                        self._sql_queue.empty() or
-                        execute_count == self._max_queue_size):
+                if self._sql_queue.empty() or execute_count == self._max_queue_size:
                     LOGGER.debug("run: commit")
                     self._sqlite3_conn.commit()
                     execute_count = 0
@@ -127,10 +125,12 @@ class Sqlite3Worker(threading.Thread):
             except sqlite3.Error as err:
                 # Put the error into the output queue since a response
                 # is required.
-                self._results[token] = (
-                    "Query returned error: %s: %s: %s" % (query, values, err))
-                LOGGER.error(
-                    "Query returned error: %s: %s: %s", query, values, err)
+                self._results[token] = "Query returned error: %s: %s: %s" % (
+                    query,
+                    values,
+                    err,
+                )
+                LOGGER.error("Query returned error: %s: %s: %s", query, values, err)
             finally:
                 # Wake up the thread waiting on the execution of the select
                 # query.
@@ -140,8 +140,7 @@ class Sqlite3Worker(threading.Thread):
             try:
                 self._sqlite3_cursor.execute(query, values)
             except sqlite3.Error as err:
-                LOGGER.error(
-                    "Query returned error: %s: %s: %s", query, values, err)
+                LOGGER.error("Query returned error: %s: %s: %s", query, values, err)
 
     def close(self):
         """Close down the thread."""

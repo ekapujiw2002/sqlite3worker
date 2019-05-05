@@ -42,11 +42,13 @@ class Sqlite3WorkerTests(unittest.TestCase):  # pylint:disable=R0904
 
     def setUp(self):  # pylint:disable=D0102
         self.tmp_file = tempfile.NamedTemporaryFile(
-            suffix="pytest", prefix="sqlite").name
+            suffix="pytest", prefix="sqlite"
+        ).name
         self.sqlite3worker = sqlite3worker.Sqlite3Worker(self.tmp_file)
         # Create sql db.
         self.sqlite3worker.execute(
-            "CREATE TABLE tester (timestamp DATETIME, uuid TEXT)")
+            "CREATE TABLE tester (timestamp DATETIME, uuid TEXT)"
+        )
 
     def tearDown(self):  # pylint:disable=D0102
         self.sqlite3worker.close()
@@ -55,11 +57,13 @@ class Sqlite3WorkerTests(unittest.TestCase):  # pylint:disable=R0904
     def test_bad_select(self):
         """Test a bad select query."""
         query = "select THIS IS BAD SQL"
-        self.assertEqual(
+        self.assertIn(
             self.sqlite3worker.execute(query),
-            (
-                "Query returned error: select THIS IS BAD SQL: "
-                "[]: no such column: THIS"))
+            [
+                "Query returned error: select THIS IS BAD SQL: []: no such column: THIS",
+                "Query returned error: select THIS IS BAD SQL: []: no such column: BAD",
+            ],
+        )
 
     def test_bad_insert(self):
         """Test a bad insert query."""
@@ -69,33 +73,37 @@ class Sqlite3WorkerTests(unittest.TestCase):  # pylint:disable=R0904
         if self.sqlite3worker.queue_size != 0:
             time.sleep(1)
         self.assertEqual(self.sqlite3worker.queue_size, 0)
-        self.assertEqual(
-            self.sqlite3worker.execute("SELECT * from tester"), [])
+        self.assertEqual(self.sqlite3worker.execute("SELECT * from tester"), [])
 
     def test_valid_insert(self):
         """Test a valid insert and select statement."""
         self.sqlite3worker.execute(
-            "INSERT into tester values (?, ?)", ("2010-01-01 13:00:00", "bow"))
+            "INSERT into tester values (?, ?)", ("2010-01-01 13:00:00", "bow")
+        )
         self.assertEqual(
             self.sqlite3worker.execute("SELECT * from tester"),
-            [("2010-01-01 13:00:00", "bow")])
+            [("2010-01-01 13:00:00", "bow")],
+        )
         self.sqlite3worker.execute(
-            "INSERT into tester values (?, ?)", ("2011-02-02 14:14:14", "dog"))
+            "INSERT into tester values (?, ?)", ("2011-02-02 14:14:14", "dog")
+        )
         # Give it one second to clear the queue.
         if self.sqlite3worker.queue_size != 0:
             time.sleep(1)
         self.assertEqual(
             self.sqlite3worker.execute("SELECT * from tester"),
-            [("2010-01-01 13:00:00", "bow"), ("2011-02-02 14:14:14", "dog")])
+            [("2010-01-01 13:00:00", "bow"), ("2011-02-02 14:14:14", "dog")],
+        )
 
     def test_run_after_close(self):
         """Test to make sure all events are cleared after object closed."""
         self.sqlite3worker.close()
         self.sqlite3worker.execute(
-            "INSERT into tester values (?, ?)", ("2010-01-01 13:00:00", "bow"))
+            "INSERT into tester values (?, ?)", ("2010-01-01 13:00:00", "bow")
+        )
         self.assertEqual(
-            self.sqlite3worker.execute("SELECT * from tester"),
-            "Close Called")
+            self.sqlite3worker.execute("SELECT * from tester"), "Close Called"
+        )
 
     def test_double_close(self):
         """Make sure double closeing messages properly."""
@@ -105,12 +113,12 @@ class Sqlite3WorkerTests(unittest.TestCase):  # pylint:disable=R0904
     def test_db_closed_propertly(self):
         """Make sure sqlite object is properly closed out."""
         self.sqlite3worker.close()
-        with self.assertRaises(
-                self.sqlite3worker._sqlite3_conn.ProgrammingError):
+        with self.assertRaises(self.sqlite3worker._sqlite3_conn.ProgrammingError):
             self.sqlite3worker._sqlite3_conn.total_changes
 
     def test_many_threads(self):
         """Make sure lots of threads work together."""
+
         class threaded(threading.Thread):
             def __init__(self, sqlite_obj):
                 threading.Thread.__init__(self, name=__name__)
@@ -125,9 +133,11 @@ class Sqlite3WorkerTests(unittest.TestCase):  # pylint:disable=R0904
                     token = str(uuid.uuid4())
                     self.sqlite_obj.execute(
                         "INSERT into tester values (?, ?)",
-                        ("2010-01-01 13:00:00", token))
+                        ("2010-01-01 13:00:00", token),
+                    )
                     resp = self.sqlite_obj.execute(
-                        "SELECT * from tester where uuid = ?", (token,))
+                        "SELECT * from tester where uuid = ?", (token,)
+                    )
                     if resp != [("2010-01-01 13:00:00", token)]:
                         self.failed = True
                         break
@@ -139,7 +149,7 @@ class Sqlite3WorkerTests(unittest.TestCase):  # pylint:disable=R0904
 
         for i in range(5):
             while not threads[i].completed:
-                time.sleep(.1)
+                time.sleep(0.1)
             self.assertEqual(threads[i].failed, False)
             threads[i].join()
 
