@@ -105,7 +105,7 @@ class Sqlite3Worker(threading.Thread):
                         self._sqlite3_conn.commit()
                         execute_count = 0
                     except Exception as e:
-                        LOGGER.error(e, exc_info=True)
+                        LOGGER.debug(e, exc_info=True)
             # Only close if the queue is empty.  Otherwise keep getting
             # through the queue until it's empty.
             if self._close_event.is_set() and self._sql_queue.empty():
