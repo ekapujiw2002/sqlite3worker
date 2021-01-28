@@ -54,12 +54,13 @@ class Sqlite3Worker(threading.Thread):
         sql_worker.close()
     """
 
-    def __init__(self, file_name, max_queue_size=100):
+    def __init__(self, file_name, max_queue_size=100, raise_on_error=True):
         """Automatically starts the thread.
 
         Args:
             file_name: The name of the file.
             max_queue_size: The max queries that will be queued.
+            raise_on_error: raise the exception on commit error
         """
         threading.Thread.__init__(self, name=__name__)
         self.daemon = True
@@ -70,6 +71,7 @@ class Sqlite3Worker(threading.Thread):
         self._sql_queue = Queue.Queue(maxsize=max_queue_size)
         self._results = {}
         self._max_queue_size = max_queue_size
+        self._raise_on_error = raise_on_error
         # Event that is triggered once the run_query has been executed.
         self._select_events = {}
         # Event to start the close process.
@@ -100,9 +102,14 @@ class Sqlite3Worker(threading.Thread):
                 # Let the executes build up a little before committing to disk
                 # to speed things up.
                 if self._sql_queue.empty() or execute_count == self._max_queue_size:
-                    LOGGER.debug("run: commit")
-                    self._sqlite3_conn.commit()
-                    execute_count = 0
+                    try:
+                        LOGGER.debug("run: commit")
+                        self._sqlite3_conn.commit()
+                        execute_count = 0
+                    except Exception as e:
+                        LOGGER.error(e, exc_info=True)
+                        if self._raise_on_error:
+                            raise e
             # Only close if the queue is empty.  Otherwise keep getting
             # through the queue until it's empty.
             if self._close_event.is_set() and self._sql_queue.empty():
